@@ -1,75 +1,137 @@
-# TestPilot
+<div align="center">
 
-TestPilot runs automated tests across local repositories, combines their JUnit
-results, and produces terminal, JSON, HTML and JUnit reports. It is a small Python
-CLI for developers who need one test command for a multi-repository project.
+<h1>TestPilot</h1>
+<p><strong>Multi-Repository Test Orchestration &amp; Reporting CLI</strong></p>
+<p>Run independent test suites from one command.<br>Bring their results together in reports that make failures and missing evidence visible.</p>
+
+<p>
+<a href="https://github.com/YoussefSelk/testpilot/actions/workflows/ci.yml"><img src="https://github.com/YoussefSelk/testpilot/actions/workflows/ci.yml/badge.svg?branch=main" alt="GitHub Actions CI status"></a>
+<a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&amp;logoColor=white" alt="Python 3.11 or newer"></a>
+<a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue" alt="MIT license"></a>
+<a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/badge/Code_style-Ruff-D7FF64?logo=ruff&amp;logoColor=black" alt="Code style: Ruff"></a>
+<a href="#development"><img src="https://img.shields.io/badge/Testing-pytest-0A9EDC?logo=pytest&amp;logoColor=white" alt="Testing with pytest"></a>
+<a href="#docker"><img src="https://img.shields.io/badge/Docker-supported-2496ED?logo=docker&amp;logoColor=white" alt="Docker support"></a>
+</p>
+
+<p>
+<a href="#overview">Overview</a> · <a href="#features">Features</a> · <a href="#quick-start">Quick Start</a> · <a href="#architecture">Architecture</a> · <a href="#cli">CLI</a> · <a href="#reports">Reports</a> · <a href="#cicd">CI/CD</a> · <a href="#docker">Docker</a> · <a href="#development">Development</a>
+</p>
+
+</div>
+
+## Overview
+
+A change spanning a backend and a frontend often means running tests in separate
+repositories, checking different exit codes, and opening several JUnit reports.
+TestPilot gives that workflow one entry point: declare local repositories, select
+an environment profile, and collect their execution results in one place.
+
+For example, a developer can test an inventory service and its presentation
+layer together before opening a pull request. CI can run the same configuration
+and preserve the same reports. TestPilot orchestrates existing test commands;
+it does not replace the testing frameworks inside your repositories.
 
 ## Features
 
-- Validated YAML configuration and local, development, staging and CI profiles.
-- Argument-array subprocess commands, output capture, deadlines and cancellation.
-- Sequential or parallel execution with stable repository ordering.
-- Hardened JUnit parsing, failure details and explicit incomplete-result status.
-- Reports for humans and CI consumers; missing evidence never becomes success.
-- Offline sample repositories, GitHub Actions, GitLab CI, Jenkins and Docker.
+| Capability | What it provides |
+| --- | --- |
+| Multi-repository orchestration | Validated local paths and explicit argument-array commands |
+| Parallel execution | Configurable workers, sequential mode, and stable result ordering |
+| Environment profiles | Variables, timeouts, concurrency and report-directory overrides |
+| JUnit aggregation | Testcase outcomes and details, with hardened XML parsing |
+| Consolidated reports | Rich terminal summary, JSON, escaped HTML and aggregate JUnit XML |
+| Failure handling | Captured output, nonzero exits, deadlines and interruption cleanup |
+| CI/CD and Docker | Three pipeline examples and a verified non-root CLI image |
 
-## Architecture
+## Quick Start
 
-```mermaid
-flowchart LR
-    CLI[Typer CLI] --> Configuration[YAML + Pydantic]
-    Configuration --> Pool[ThreadPoolExecutor]
-    Pool --> Repositories[Local test subprocesses]
-    Repositories --> Parser[Hardened JUnit parser]
-    Parser --> Results[Ordered results and counts]
-    Results --> Terminal[Rich summary]
-    Results --> Reports[JSON / HTML / JUnit]
-```
-
-See [architecture decisions](docs/architecture.md). The CLI handles configuration
-and exits, workers own their processes, and reporting consumes structured results.
-
-## Installation
-
-Requires Python 3.11+ and dependencies for each repository's own tests. From a
-checkout, install TestPilot and its development tools:
+Clone the repository and create an isolated environment:
 
 ```bash
+git clone https://github.com/YoussefSelk/testpilot.git
+cd testpilot
 python -m venv .venv
-# Linux/macOS:
-source .venv/bin/activate
-# Windows PowerShell instead:
-# .\.venv\Scripts\Activate.ps1
-python -m pip install -e ".[dev]"
-testpilot --help
 ```
 
-For a runtime-only installation use `python -m pip install .`. The distribution
-name is `testpilot-cli`; the executable and import package are `testpilot`.
-This project is published as source on GitHub; no PyPI release is claimed.
-
-## Quick start
-
-The committed configuration runs two independent, offline sample repositories:
+Activate it on Linux/macOS:
 
 ```bash
+source .venv/bin/activate
+```
+
+Or in Windows PowerShell:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+Install, validate, and run the bundled offline repositories:
+
+```bash
+python -m pip install -e ".[dev]"
 testpilot validate -c testpilot.yml
 testpilot list -c testpilot.yml
 testpilot run -c testpilot.yml --env local
-testpilot report --input reports --format html
-testpilot report --input reports --format json
+testpilot report --input reports --format html --output reports/demo.html
 ```
 
-Expected demo counts: **8 tests, 7 passed, 1 skipped**, with exit code 0. The
-backend checks inventory reservations and the frontend checks presentation logic.
-Reports appear in `reports/<UTC timestamp>-<unique id>/`.
+The example returns **exit 0: 8 tests, 7 passed, 1 skipped**. Open
+`reports/demo.html` in a browser:
 
-In another project, `testpilot init` creates a starter configuration for pytest
-in the configuration's directory. It refuses to overwrite an existing file.
-Edit its paths and test commands, then validate and run it. The alternative
-`examples/testpilot.yml` resolves its repository paths relative to `examples/`.
+```bash
+# Linux
+xdg-open reports/demo.html
+# macOS
+open reports/demo.html
+```
 
-## Configuration reference
+```powershell
+# Windows
+Start-Process reports/demo.html
+```
+
+For your own repositories, generate a separate starter file:
+
+```bash
+testpilot init -c starter-testpilot.yml
+testpilot validate -c starter-testpilot.yml --env local
+```
+
+Edit its repository paths and commands before use. The committed `testpilot.yml`
+is already configured for the demo; `init` refuses to overwrite existing files.
+Runtime-only installation is `python -m pip install .`. The distribution is
+`testpilot-cli`; the executable and import package are `testpilot`. No PyPI
+release is claimed.
+
+## CLI
+
+![Actual TestPilot help output showing all six CLI commands](docs/assets/cli-overview.png)
+
+| Command | Purpose |
+| --- | --- |
+| `init` | Create a starter YAML configuration |
+| `validate` | Check configuration, directories and JUnit output uniqueness |
+| `list` | Show configured repositories and working directories |
+| `run` | Execute selected suites and write all report formats |
+| `report` | Regenerate a report from a persisted run |
+| `version` | Print the installed version |
+
+```bash
+testpilot run --env ci --parallel 4
+testpilot run --repo backend --timeout 120
+testpilot run --parallel 1 --report-dir reports/sequential
+testpilot report --input reports --format json --output reports/demo.json
+testpilot report --input reports --format junit --output reports/combined.xml
+testpilot version
+python -m testpilot --help
+```
+
+Use `--help` on any command. Repeat `--repo` to select several repositories.
+Paths supplied with `--report-dir` resolve relative to the configuration file.
+
+## Configuration
+
+This complete example runs the included backend and frontend independently:
 
 ```yaml
 version: 1
@@ -77,177 +139,132 @@ defaults:
   timeout: 300
   parallel: 2
   report_dir: reports
-  env:
-    APP_ENV: local
 profiles:
+  local:
+    env: {APP_ENV: local}
   ci:
-    timeout: 600
+    env: {APP_ENV: test}
     parallel: 4
-    report_dir: reports/ci
-    env:
-      APP_ENV: test
 repositories:
   - name: backend
     path: examples/repo_a
-    working_dir: .
     command: [python, -m, pytest, tests/, -q, --junitxml=test-results.xml]
-    timeout: 120
-    env:
-      FEATURE_MODE: test
+    junit: test-results.xml
+  - name: frontend
+    path: examples/repo_b
+    command: [python, -m, pytest, tests/, -q, --junitxml=test-results.xml]
     junit: test-results.xml
 ```
 
-| Field | Meaning |
-| --- | --- |
-| `version` | Required schema version, currently `1` |
-| `defaults.timeout` | Positive finite seconds; default `300` |
-| `defaults.parallel` | Workers from `1` to `256`; default `2` |
-| `defaults.report_dir` | Output directory relative to the config; default `reports` |
-| `defaults.env` | String environment variables layered over inherited variables |
-| `profiles` | Named overrides of defaults and environment variables |
-| `repositories` | Nonempty ordered list of repository settings |
-| `name` | Unique identifier using letters, digits, `_`, `.` and `-`; starts with a letter/digit |
-| `path` | Existing directory; relative to the config file or absolute |
-| `command` | Nonempty list of program arguments; shell strings are rejected |
-| `working_dir` | Existing directory relative to `path`, or an absolute directory |
-| `timeout` | Optional repository timeout |
-| `env` | Optional repository environment overrides; YAML values must be strings |
-| `junit` | Optional XML file relative to the working directory, or absolute |
+Repository paths resolve relative to the YAML file. Optional `working_dir`
+resolves relative to the repository; `junit` resolves relative to that working
+directory. The command must actually generate the configured XML: TestPilot
+never adds framework-specific report flags for you.
 
-Unknown keys and unknown profile/repository selections are errors. The command
-must produce the configured XML: **setting `junit` does not add command flags**.
-TestPilot clears the previous configured JUnit file before execution to avoid
-stale results. Use a dedicated generated file, never a source file. Repositories
-in a run cannot share the same resolved JUnit output path.
+Precedence is explicit: **defaults → profile → repository → CLI**, where the
+setting is supported. Environment variables start with the inherited process
+environment, then defaults, profile and repository values. Repository overrides
+apply to timeout and variables; worker count and report directory can be
+changed by profiles and CLI options. Without `--env`, defaults apply.
 
-Environment precedence, from lowest to highest: inherited process environment,
-`defaults.env`, profile `env`, repository `env`. For timeout: defaults, profile,
-repository, CLI `--timeout`. For parallelism and output directory: defaults,
-profile, CLI. There are no repository-specific worker/report-directory settings.
-Without `--env`, defaults apply and the report environment is `default`.
+See the [full configuration reference](docs/configuration.md) for validation,
+absolute paths, all four sample profiles and operational limits. Supply secrets
+through the environment or your CI secret store; captured test logs may contain
+whatever the test programs print.
 
-Environment values are not printed by TestPilot. Supply real secrets through
-your environment or CI secret store; examples contain none. Captured test logs
-can contain whatever the test programs print, so review reports before sharing.
+## Architecture
 
-## CLI examples and exit codes
-
-```bash
-testpilot init -c new-testpilot.yml
-testpilot validate -c testpilot.yml --env ci
-testpilot list -c testpilot.yml
-testpilot run --env ci --parallel 4
-testpilot run --repo backend --repo frontend --timeout 120 --report-dir reports/custom
-testpilot report --input reports --format junit --output combined.xml
-testpilot version
-python -m testpilot --help
+```mermaid
+flowchart TD
+    CLI[Typer CLI] --> Config[YAML loading and Pydantic validation]
+    Config --> Profiles[Resolve profiles, paths and overrides]
+    Profiles --> Pool[ThreadPoolExecutor orchestrator]
+    Pool --> Backend[Backend test subprocess]
+    Pool --> Frontend[Frontend test subprocess]
+    Backend --> Parser[Hardened JUnit parser]
+    Frontend --> Parser
+    Parser --> Results[Ordered results and aggregate counts]
+    Results --> Terminal[Rich terminal summary]
+    Results --> JSON[JSON report]
+    Results --> HTML[HTML report]
+    Results --> JUnit[Aggregated JUnit XML]
 ```
 
-`report --input` accepts a canonical `run.json`, a single run directory or a
-report root. A root selects the most recent timestamp-named immediate child run;
-use an explicit directory to choose a historical run. It regenerates reports
-from persisted evidence and does not execute tests.
+Each worker owns its subprocess and output capture. The runner reads that
+repository's JUnit evidence after execution; the orchestrator assembles results
+in configuration order. Structured result models derive counts and success, and
+reporting modules render the same evidence for people and CI consumers.
+See [architecture decisions](docs/architecture.md).
 
-| Exit | Meaning |
-| --- | --- |
-| `0` | Complete successful execution/report, or successful utility command |
-| `1` | Failed tests, executable failure, timeout or unavailable/incomplete results |
-| `2` | CLI usage, configuration, report input/output or filesystem error |
-| `130` | Interrupted test execution |
+## Execution
 
-An intentional failure demonstration is available:
+![Actual parallel test execution with backend and frontend results and aggregate counts](docs/assets/test-execution.png)
 
-```bash
-testpilot run -c examples/testpilot-failing.yml --env ci
-# Expected exit 1; artifacts remain under reports/failure-demo/.
-```
+The screenshot shows a real two-worker run. The CLI displays a final summary;
+it does not currently stream live progress. Durations vary by machine and run.
 
-## Parallel execution
+Commands execute without `shell=True`. A nonzero command exit or a failed/error
+testcase makes the run fail. A timeout stops the owned process group/tree and
+records available results; cancellation stops queued work and cleans up running
+children. Final report ordering stays predictable even when suites finish in a
+different order.
 
-```bash
-testpilot run --parallel 1  # Sequential
-testpilot run --parallel 4  # Up to four independent processes
-```
-
-Workers use `ThreadPoolExecutor` and each subprocess owns its capture files.
-The final order follows configuration order, independent of completion order.
-On timeout or interruption, POSIX process groups are killed; Windows uses
-`taskkill /T /F` with a direct-process fallback. Ctrl+C and SIGTERM cancellation
-stop queued jobs and preserve results for completed/interrupted repositories.
-Processes that intentionally detach from the owned tree can escape cleanup.
-
-Activate the environment containing your test dependencies. Bare executable
-names are resolved through the configured `PATH`, including on Windows. Specify
-an explicit interpreter path when a repository requires a different environment.
-Shell operators, variable interpolation and Windows `.bat`/`.cmd` executables
-are not supported; use direct executable argument arrays.
-
-## Environment profiles
-
-The main example provides `local`, `development`, `staging` and `ci`:
-
-```bash
-testpilot run --env development
-testpilot run --env staging --parallel 1
-testpilot run --env ci --parallel 4
-```
-
-Profiles override variables and defaults only; repository-specific settings
-remain higher priority. TestPilot does not provision environments or dependencies.
+Missing, malformed, stale or empty JUnit evidence is **incomplete**, never a
+successful test run. TestPilot clears each dedicated JUnit output file before
+execution and rejects shared output paths within a run. Avoid overlapping
+invocations against the same repository-generated files.
 
 ## Reports
 
-Each run directory contains:
+![Actual HTML report showing an intentional frontend failure, passed backend tests and a skipped test](docs/assets/html-report.png)
 
-- `run.json`: timestamp, profile, duration, ordered execution results, stdout,
-  stderr, exit codes, testcase details, aggregate counts and success/completeness.
-- `report.html`: escaped summary, testcase results and expandable captured logs.
-- `junit.xml`: consolidated testcases plus explicit execution errors for CI.
+This HTML screenshot comes from a deliberately failing demo: **8 tests,
+6 passed, 1 failed, 1 skipped**, with exit code 1. The ordinary demo passes.
+[Capture provenance](docs/assets/README.md) records how all screenshots were made.
 
-For the normal demo, the JSON summary contains:
+Every run writes a unique `reports/<timestamp>-<id>/` directory:
 
-```json
-{
-  "environment": "local",
-  "counts": {"tests": 8, "passed": 7, "failed": 0, "errors": 0, "skipped": 1},
-  "success": true,
-  "results_complete": true
-}
+- **`run.json`**: canonical evidence, timestamps, profile, exit codes, durations,
+  counts, testcase details, stdout/stderr and completeness.
+- **`report.html`**: repository breakdown, testcase results and expandable logs.
+- **`junit.xml`**: combined testcases, plus explicit execution errors for CI.
+
+`report --input` accepts a JSON file, a run directory, or a report root; a root
+selects its latest immediate child run. Aggregate JUnit adds a synthetic
+`__testpilot_execution__` error when evidence is incomplete or an execution
+failure has no failed testcase, so its totals can exceed actual test counts.
+
+Exit codes: **`0`** success; **`1`** failed/incomplete execution;
+**`2`** usage, configuration or report I/O error; **`130`** interrupted execution.
+The `report` command also returns nonzero for failed/incomplete saved runs.
+
+To see failure handling yourself:
+
+```bash
+testpilot run -c examples/testpilot-failing.yml --env ci
+# Expected exit 1; reports remain under reports/failure-demo/.
 ```
 
-Missing/malformed XML, mismatched declared counts, empty suites and absent JUnit
-configuration are incomplete and return nonzero. A zero-exit command alone is
-insufficient evidence. Failed/error testcases also fail a zero-exit command.
-Partial parsed results remain visible on timeout/interruption. DTDs, entities
-and external entities are rejected using `defusedxml` with ElementTree semantics.
-Nested suites are counted by testcase elements, not by summing parent counters.
+## CI/CD
 
-Aggregate JUnit adds a synthetic `__testpilot_execution__` error when execution
-is unsuccessful without a testcase failure, or evidence is incomplete. Its totals
-therefore may exceed the actual test counts in JSON/HTML. This ensures CI JUnit
-consumers do not display missing test results as success.
+![Real GitHub Actions run with all four platform and Python jobs and the Docker job successful](docs/assets/github-actions.png)
 
-## GitHub Actions
+[The captured GitHub Actions run](https://github.com/YoussefSelk/testpilot/actions/runs/38068204059)
+passed all five jobs and preserved five report artifacts. The badge at the top
+tracks the current `main` workflow; the screenshot documents that specific run.
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) installs dependencies,
-caches pip, runs the shared checks and demo on Linux/Windows with Python 3.11
-and 3.14, and uploads reports even after failure. A separate Docker job builds
-the image and executes the CLI against a writable mounted checkout. Action
-references are pinned to commit SHAs. Push/PR events run it automatically.
+- **[GitHub Actions](.github/workflows/ci.yml)** runs Linux/Windows checks with
+  Python 3.11 and 3.14, plus a Docker build and mounted-repository demonstration.
+- **[GitLab CI](.gitlab-ci.yml)** runs the same checks in Python 3.11 slim and
+  publishes JUnit results and artifacts, including after failures.
+- **[Jenkins](Jenkinsfile)** uses a Python container and archives reports in
+  `post { always { ... } }`. It needs a Linux Docker-capable agent and the
+  Docker Pipeline and JUnit plugins.
 
-## GitLab CI
-
-[`.gitlab-ci.yml`](.gitlab-ci.yml) uses Python 3.11 slim, caches pip, runs the
-same checks and demo, and preserves both raw artifacts and JUnit results on
-failure. It runs when this source is hosted in a GitLab project with a runner.
-
-## Jenkins
-
-[`Jenkinsfile`](Jenkinsfile) runs installation, checks and the demo in a Python
-3.11 container and archives reports in `post { always { ... } }`. It requires a
-Linux Docker-capable agent, Docker Pipeline and JUnit plugins, and an SCM-backed
-pipeline. The shared script returns the first failed command's status; no
-pipeline suppresses failures. Pip cache remains in the Jenkins workspace.
+All three call [`scripts/check.py`](scripts/check.py): lint, format, types,
+unit/integration tests, configuration validation and a real orchestration demo.
+The script preserves the first failure's exit status. GitHub Actions has actually
+run; GitLab and Jenkins configurations have not been executed on hosted services.
 
 ## Docker
 
@@ -256,11 +273,9 @@ docker build -t testpilot:local .
 docker run --rm testpilot:local --help
 ```
 
-The image uses Python 3.11 slim and runs as UID `10001`. It includes pytest for
-the offline demonstration; other frameworks/dependencies need a derived image.
-It can only access repositories explicitly mounted into the container.
-
-Linux/macOS, running the bundled sample repositories as your user:
+The image runs as non-root UID `10001` and includes pytest for the offline demo.
+Mount your repositories explicitly; the container cannot see host paths by itself.
+On Linux/macOS, use your UID for writable repository and report mounts:
 
 ```bash
 mkdir -p reports
@@ -277,13 +292,39 @@ docker run --rm --mount "type=bind,src=$($PWD.Path),dst=/workspace" `
   testpilot:local run -c /workspace/testpilot.yml --env ci
 ```
 
-For external repositories, mount them separately and use container paths in the
-YAML, such as `/repos/backend`. Mount the configuration and report directory too.
-The container user needs write access to reports and each configured JUnit
-location. Read-only repository mounts require redirecting JUnit to a separate
-writable mounted directory and changing the command's report flag accordingly.
+Reports are written back to the mounted `reports/` directory. For other projects,
+mount their repositories separately and use container paths in YAML. The
+container user needs write access to JUnit locations and reports. Extra test
+frameworks/dependencies require a derived image. Read-only repository mounts
+need a separate writable JUnit destination and the matching test-command flag.
 
-## Testing and development
+## Project Structure
+
+```text
+.github/workflows/ci.yml   GitHub Actions
+src/testpilot/
+  cli.py                  Commands and terminal summary
+  config.py, models.py    Configuration and structured result contracts
+  runner.py               Subprocess lifecycle and JUnit collection
+  orchestrator.py         Parallel execution and ordered run results
+  junit.py                Hardened XML parsing and count validation
+  reporting/              JSON, HTML and aggregate JUnit generation
+tests/                    Unit and real subprocess integration tests
+examples/                 Offline backend/frontend suites and YAML configurations
+docs/                     Architecture, configuration and screenshot assets
+scripts/check.py          Shared CI quality gates and demonstration
+.gitlab-ci.yml            GitLab CI
+Jenkinsfile               Jenkins pipeline
+Dockerfile                Non-root CLI image
+pyproject.toml            Packaging, dependencies and quality-tool configuration
+testpilot.yml             Ready-to-run local demonstration
+```
+
+The source separates configuration, process ownership, execution coordination
+and rendering. Tests use temporary repositories and real subprocesses rather
+than requiring network services.
+
+## Development
 
 ```bash
 python -m pip install -e ".[dev]"
@@ -296,30 +337,23 @@ python -m mypy
 python -m build
 ```
 
-The shared CI script runs lint/format/type checks, real subprocess integration
-tests, coverage/JUnit output, configuration validation and the offline demo.
-Tests need no external services. The POSIX SIGINT integration check is skipped
-on Windows; the Linux CI matrix executes it. The demo's intentional skip is
-separate from the framework's platform-specific test skip.
-
-## Limitations
-
-- Local repositories only; no cloning, dependency installation or remote runners.
-- One JUnit file per repository. Summary-only XML without testcase evidence is
-  incomplete; dialects with inconsistent declared counters are rejected.
-- Commands and repositories are trusted local code; subprocess isolation is not
-  a sandbox. Output is captured to temporary files, then loaded into reports.
-- Avoid simultaneous TestPilot invocations against the same JUnit locations:
-  unique consolidated run directories do not isolate repository-generated files.
-- No distributed scheduling, retry policy, streamed logs or report dashboard.
-- GitLab/Jenkins require their respective hosted environments; file presence
-  and local shared-script checks are distinct from a hosted pipeline run.
+At the captured implementation revision, the full suite passed **60 tests on
+Linux** and **58 tests on Windows**, with two POSIX-only signal checks skipped
+on Windows. The sample repository's intentional skip is separate from those
+platform skips. The wheel, source distribution, Docker CLI and failure exit
+behavior were also verified.
 
 ## Roadmap
 
-Potential future work: multiple JUnit files per repository, output size limits,
-streamed progress and explicit retry policies. These are not MVP features.
+Not implemented yet: multiple JUnit files per repository, streamed progress,
+output size limits and explicit retry policies. TestPilot currently operates on
+trusted local commands; it does not clone repositories, provision dependencies,
+provide a subprocess sandbox or run a distributed scheduler.
 
-## License
+## Contributing and License
 
-[MIT](LICENSE).
+Open an issue with a reproducible case, or submit a focused pull request with
+relevant tests. Run `python scripts/check.py` before submitting code changes and
+keep configuration examples and CLI documentation consistent with the behavior.
+
+TestPilot is licensed under the [MIT License](LICENSE).
