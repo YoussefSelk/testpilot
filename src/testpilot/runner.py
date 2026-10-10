@@ -1,6 +1,7 @@
 """Subprocess execution with cancellation and process cleanup."""
 
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -46,16 +47,23 @@ def run_repository(repo: ResolvedRepository, cancel: threading.Event) -> Reposit
         if repo.junit:
             repo.junit.parent.mkdir(parents=True, exist_ok=True)
             repo.junit.unlink(missing_ok=True)
+        command = repo.command.copy()
+        # Windows searches the parent application's directory before PATH. Resolve
+        # bare executables explicitly so activated virtual environments are honored.
+        executable = (
+            shutil.which(command[0], path=repo.env.get("PATH"))
+            if not os.path.dirname(command[0])
+            else None
+        )
+        if executable:
+            command[0] = executable
         # Windows may implicitly execute batch files through a shell; reject them.
         if os.name == "nt":
-            import shutil
-
-            executable = shutil.which(repo.command[0], path=repo.env.get("PATH"))
-            if executable and executable.lower().endswith((".cmd", ".bat")):
+            if command[0].lower().endswith((".cmd", ".bat")):
                 raise ValueError("Windows batch commands must be replaced with a direct executable")
         with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
             process = subprocess.Popen(
-                repo.command,
+                command,
                 cwd=repo.cwd,
                 env=repo.env,
                 shell=False,

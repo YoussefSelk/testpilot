@@ -1,6 +1,7 @@
 import sys
 import threading
 import time
+from pathlib import Path
 
 import pytest
 
@@ -40,6 +41,17 @@ def test_real_subprocess_output_environment_and_report(config_file):
     assert result.stderr.strip() == "err"
     assert result.exit_code == 0
     assert result.duration > 0
+
+
+def test_bare_executable_uses_configured_path(config_file):
+    repo = make_repo(config_file, WRITE_XML + "import sys; print(sys.executable)")
+    repo.command[0] = "python"
+    import os
+
+    repo.env["PATH"] = str(Path(sys.executable).parent) + os.pathsep + repo.env.get("PATH", "")
+    result = run_repository(repo, threading.Event())
+    assert result.success
+    assert Path(result.stdout.strip()).absolute() == Path(sys.executable).absolute()
 
 
 def test_nonzero_cannot_pass_even_with_passing_junit(config_file):
