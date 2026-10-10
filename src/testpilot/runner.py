@@ -61,6 +61,9 @@ def run_repository(repo: ResolvedRepository, cancel: threading.Event) -> Reposit
         if os.name == "nt":
             if command[0].lower().endswith((".cmd", ".bat")):
                 raise ValueError("Windows batch commands must be replaced with a direct executable")
+        creation_flags = 0
+        if sys.platform == "win32":
+            creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP
         with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
             process = subprocess.Popen(
                 command,
@@ -71,7 +74,7 @@ def run_repository(repo: ResolvedRepository, cancel: threading.Event) -> Reposit
                 stdout=stdout,
                 stderr=stderr,
                 start_new_session=os.name != "nt",
-                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
+                creationflags=creation_flags,
             )
             status: Status | None = None
             deadline = time.monotonic() + repo.timeout
