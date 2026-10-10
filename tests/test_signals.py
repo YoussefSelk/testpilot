@@ -1,4 +1,5 @@
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -7,10 +8,8 @@ import pytest
 
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX process-group behavior")
-def test_sigint_writes_interrupted_report(tmp_path):
-    # Full CLI signal test added after CLI implementation; fixtures require no services.
-    import signal
-
+@pytest.mark.parametrize("interruption", [signal.SIGINT, signal.SIGTERM])
+def test_signal_writes_interrupted_report(tmp_path, interruption):
     import yaml
 
     repo = tmp_path / "repo"
@@ -24,7 +23,12 @@ def test_sigint_writes_interrupted_report(tmp_path):
                     {
                         "name": "sleep",
                         "path": "repo",
-                        "command": [sys.executable, "-c", "import time; time.sleep(30)"],
+                        "command": [
+                            sys.executable,
+                            "-c",
+                            "import time; from pathlib import Path; "
+                            "Path('ready').touch(); time.sleep(30)",
+                        ],
                     }
                 ],
             }
@@ -37,8 +41,12 @@ def test_sigint_writes_interrupted_report(tmp_path):
         stderr=subprocess.PIPE,
     )
     try:
-        time.sleep(1)
-        proc.send_signal(signal.SIGINT)
+        deadline = time.monotonic() + 10
+        while not (repo / "ready").exists() and proc.poll() is None:
+            assert time.monotonic() < deadline, "Test subprocess never became ready"
+            time.sleep(0.02)
+        assert proc.poll() is None
+        proc.send_signal(interruption)
         proc.communicate(timeout=10)
         assert proc.returncode == 130
         assert list((tmp_path / "reports").glob("*/run.json"))
