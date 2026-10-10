@@ -44,6 +44,8 @@ def test_nested_suites_count_once(tmp_path):
         "<testsuite failures='1'><testcase name='a'/></testsuite>",
         "<testsuite tests='-1'/>",
         '<!DOCTYPE x [<!ENTITY a "expanded">]><testsuite><testcase name="&a;"/></testsuite>',
+        '<?xml version="1.0" encoding="X-NOT-AN-ENCODING"?>'
+        '<testsuite><testcase name="x"/></testsuite>',
     ],
 )
 def test_malformed_unsafe_or_inconsistent(tmp_path, xml):

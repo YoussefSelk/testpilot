@@ -76,6 +76,29 @@ def test_missing_report_is_nonzero(config_file):
     assert "incomplete" in result.stdout
 
 
+def test_unknown_xml_encoding_preserves_incomplete_report(config_file):
+    xml = '<?xml version="1.0" encoding="X-NOT-AN-ENCODING"?><testsuite/>'
+    path = config_file(
+        repositories=[
+            {
+                "name": "bad",
+                "path": "repo",
+                "junit": "r.xml",
+                "command": [
+                    sys.executable,
+                    "-c",
+                    f"from pathlib import Path; Path('r.xml').write_text({xml!r})",
+                ],
+            }
+        ]
+    )
+    result = runner.invoke(app, ["run", "-c", str(path)])
+    assert result.exit_code == 1
+    data = json.loads(next((path.parent / "reports").glob("*/run.json")).read_text())
+    assert data["repositories"][0]["status"] == "incomplete"
+    assert not data["success"]
+
+
 def test_report_bad_input_and_format(tmp_path):
     assert runner.invoke(app, ["report", "--input", str(tmp_path)]).exit_code == 2
     assert runner.invoke(app, ["report", "--format", "pdf"]).exit_code == 2

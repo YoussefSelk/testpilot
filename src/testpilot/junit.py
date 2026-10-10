@@ -67,5 +67,5 @@ def parse_junit(path: Path) -> list[CaseResult]:
         return cases
     except OSError as exc:
         raise JUnitError(f"Cannot read JUnit report: {exc.strerror}") from None
-    except (ParseError, DefusedXmlException, ValueError) as exc:
+    except (ParseError, DefusedXmlException, ValueError, LookupError) as exc:
         raise JUnitError(f"Invalid JUnit report: {exc}") from None
