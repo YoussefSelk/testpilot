@@ -1,0 +1,21 @@
+version: 1
+defaults:
+  timeout: 300
+  parallel: 2
+  report_dir: ../reports
+profiles:
+  local:
+    env: {APP_ENV: local}
+  ci:
+    env: {APP_ENV: test}
+    parallel: 4
+    timeout: 600
+repositories:
+  - name: backend
+    path: repo_a
+    command: [python, -m, pytest, tests/, -q, --junitxml=test-results.xml]
+    junit: test-results.xml
+  - name: frontend
+    path: repo_b
+    command: [python, -m, pytest, tests/, -q, --junitxml=test-results.xml]
+    junit: test-results.xml

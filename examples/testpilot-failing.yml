@@ -1,0 +1,12 @@
+version: 1
+defaults:
+  report_dir: ../reports/failure-demo
+profiles:
+  ci:
+    env: {APP_ENV: test}
+repositories:
+  - name: frontend
+    path: repo_b
+    command: [python, -m, pytest, tests/, -q, --junitxml=test-results.xml]
+    env: {TESTPILOT_DEMO_FAIL: "1"}
+    junit: test-results.xml
