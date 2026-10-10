@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "testpilot-cli"
+version = "0.1.0"
+description = "Run and aggregate automated tests across local repositories"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = [
+  "typer>=0.16,<1", "rich>=13.9,<15", "pydantic>=2.10,<3",
+  "PyYAML>=6.0.2,<7", "defusedxml>=0.7.1,<1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3,<10", "pytest-cov>=6,<8", "ruff>=0.11,<1", "mypy>=1.15,<2", "types-PyYAML>=6", "types-defusedxml>=0.7", "build>=1.2,<2"]
+
+[project.scripts]
+testpilot = "testpilot.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/testpilot"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src/testpilot"]
